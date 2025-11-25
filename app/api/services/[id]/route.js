@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { consulta } from '../../../lib/db'
 import { verificarToken } from '../../../lib/auth'
+import { writeFile, mkdir } from 'fs/promises'
+import { join } from 'path'
 
 export async function GET(request, { params }) {
 	try {
@@ -49,9 +51,61 @@ export async function PUT(request, { params }) {
 		const category = data.get('category')?.toString()?.trim() || servicio.category
 		const base_price = parseFloat(data.get('price')?.toString() || servicio.base_price)
 
+		// Procesar imágenes nuevas
+		const uploadsDir = join(process.cwd(), 'public', 'uploads', 'services')
+		let galleryImages = servicio.gallery_images ? JSON.parse(servicio.gallery_images) : []
+
+		// Obtener las imágenes actuales del cliente (las que se mantienen)
+		const currentImagesStr = data.get('currentImages')
+		if (currentImagesStr) {
+			galleryImages = JSON.parse(currentImagesStr)
+		}
+
+		// Procesar nuevas imágenes
+		try {
+			await mkdir(uploadsDir, { recursive: true })
+		} catch (mkdirError) {
+			console.error('Error creando directorio:', mkdirError)
+		}
+
+		const imageFiles = data.getAll('images')
+		const newImageUrls = []
+
+		for (let i = 0; i < Math.min(imageFiles.length, 5); i++) {
+			const file = imageFiles[i]
+
+			if (file && file instanceof Blob && file.size > 0) {
+				try {
+					const bytes = await file.arrayBuffer()
+					const buffer = Buffer.from(bytes)
+					const timestamp = Date.now()
+
+					let extension = 'jpg'
+					if (file.name) {
+						const parts = file.name.split('.')
+						if (parts.length > 1) {
+							extension = parts[parts.length - 1].toLowerCase()
+						}
+					}
+
+					const filename = `service_${usuario.id}_${timestamp}_${i}.${extension}`
+					const path = join(uploadsDir, filename)
+
+					await writeFile(path, buffer)
+					newImageUrls.push(`/uploads/services/${filename}`)
+				} catch (imgError) {
+					console.error(`Error al guardar imagen ${i + 1}:`, imgError.message)
+				}
+			}
+		}
+
+		// Combinar imágenes actuales con nuevas
+		const allImages = [...galleryImages, ...newImageUrls]
+		const finalImages = allImages.slice(0, 5)
+
 		await consulta(
-			`UPDATE services SET title = ?, description = ?, category = ?, base_price = ? WHERE id = ?`,
-			[title, description, category, base_price, id]
+			`UPDATE services SET title = ?, description = ?, category = ?, base_price = ?, gallery_images = ? WHERE id = ?`,
+			[title, description, category, base_price, JSON.stringify(finalImages), id]
 		)
 
 		return NextResponse.json({ mensaje: 'Servicio actualizado' })
