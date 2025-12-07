@@ -1,15 +1,14 @@
-'use client'
+"use client"
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import React, { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import { Navigation } from "@/components/navigation_cliente"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Search, Star, Loader2 } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Loader2, Star, Clock, CheckCircle2, MessageCircle, Package } from 'lucide-react'
+import ContratarDialog from '@/components/contratar-dialog'
 
 interface Servicio {
   id: number
@@ -20,282 +19,351 @@ interface Servicio {
   base_price: number | string
   delivery_time: number
   gallery_images: string[]
-  freelancer: {
-    id: number
-    first_name: string
-    last_name: string
-    avatar: string | null
-    email: string
-  }
+  freelancer_id: number
+  // Datos del freelancer vienen directamente en el objeto
+  first_name: string
+  last_name: string
+  avatar: string | null
+  email: string
 }
 
-export default function ContratarServiciosPage() {
+export default function ContratarServicioPage() {
+  const params = useParams()
   const router = useRouter()
-  const [usuario, setUsuario] = useState<any>(null)
-  const [servicios, setServicios] = useState<Servicio[]>([])
-  const [serviciosFiltrados, setServiciosFiltrados] = useState<Servicio[]>([])
+  const { id } = params || {}
+
+  const [servicio, setServicio] = useState<Servicio | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [busqueda, setBusqueda] = useState('')
-  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('Todas')
-
-  const categorias = [
-    'Todas',
-    'Diseño',
-    'Desarrollo',
-    'Escritura',
-    'Video',
-    'Marketing',
-    'Traducción',
-    'Consultoría'
-  ]
+  const [selectedImage, setSelectedImage] = useState(0)
 
   useEffect(() => {
-    const usuarioGuardado = localStorage.getItem('usuario')
-    if (usuarioGuardado) {
-      setUsuario(JSON.parse(usuarioGuardado))
+    if (!id) {
+      console.log('No hay ID en params')
+      return
     }
-  }, [])
-
-  useEffect(() => {
-    cargarServicios()
-  }, [])
-
-  useEffect(() => {
-    filtrarServicios()
-  }, [busqueda, categoriaSeleccionada, servicios])
-
-  const cargarServicios = async () => {
-    try {
+    
+    const fetchServicio = async () => {
+      console.log('Cargando servicio con ID:', id)
       setLoading(true)
-      const response = await fetch('/api/services')
-      
-      if (!response.ok) {
-        throw new Error('Error al cargar servicios')
-      }
-
-      const data = await response.json()
-      console.log('Servicios cargados:', data.servicios)
-      setServicios(data.servicios || [])
       setError('')
-    } catch (err) {
-      console.error('Error al cargar servicios:', err)
-      setError('No se pudieron cargar los servicios')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const filtrarServicios = () => {
-    let resultado = servicios
-
-    // Filtrar por categoría
-    if (categoriaSeleccionada !== 'Todas') {
-      resultado = resultado.filter(
-        servicio => servicio.category === categoriaSeleccionada
-      )
-    }
-
-    // Filtrar por búsqueda
-    if (busqueda.trim()) {
-      const searchLower = busqueda.toLowerCase()
-      resultado = resultado.filter(servicio =>
-        servicio.title.toLowerCase().includes(searchLower) ||
-        servicio.description.toLowerCase().includes(searchLower) ||
-        servicio.category.toLowerCase().includes(searchLower) ||
-        `${servicio.freelancer.first_name} ${servicio.freelancer.last_name}`
-          .toLowerCase()
-          .includes(searchLower)
-      )
+      try {
+        const res = await fetch(`/api/services/${id}`)
+        console.log('Response status:', res.status)
+        
+        if (res.ok) {
+          const data = await res.json()
+          console.log('Datos del servicio:', data)
+          setServicio(data.servicio)
+        } else {
+          console.error('Error en respuesta:', res.status)
+          setError('Servicio no encontrado')
+          setTimeout(() => router.push('/dashboard_cliente/contratar'), 2000)
+        }
+      } catch (err) {
+        console.error('Error al cargar servicio:', err)
+        setError('Error al cargar el servicio')
+      } finally {
+        setLoading(false)
+      }
     }
 
-    setServiciosFiltrados(resultado)
-  }
+    fetchServicio()
+  }, [id, router])
 
   const formatearPrecio = (precio: number | string): string => {
     const precioNumero = typeof precio === 'string' ? parseFloat(precio) : precio
     return isNaN(precioNumero) ? '0.00' : precioNumero.toFixed(2)
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-neutral-950">
+        <Navigation />
+        <div className="flex flex-col items-center justify-center py-32">
+          <Loader2 className="h-12 w-12 animate-spin text-teal-500 mb-4" />
+          <p className="text-gray-400">Cargando servicio...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !servicio) {
+    return (
+      <div className="min-h-screen bg-neutral-950">
+        <Navigation />
+        <div className="max-w-4xl mx-auto px-4 py-32 text-center">
+          <div className="text-red-400 text-lg mb-4">{error || 'Servicio no encontrado'}</div>
+          <Button onClick={() => router.push('/dashboard_cliente/contratar')} variant="outline">
+            Volver a servicios
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Validar que servicio tenga los datos necesarios
+  if (!servicio.title || !servicio.base_price) {
+    console.error('Datos del servicio incompletos:', servicio)
+    return (
+      <div className="min-h-screen bg-neutral-950">
+        <Navigation />
+        <div className="max-w-4xl mx-auto px-4 py-32 text-center">
+          <div className="text-red-400 text-lg mb-4">Error: Datos del servicio incompletos</div>
+          <Button onClick={() => router.push('/dashboard_cliente/contratar')} variant="outline">
+            Volver a servicios
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Los datos del freelancer vienen directamente en el objeto servicio
+  const nombreCompleto = `${servicio.first_name || 'Usuario'} ${servicio.last_name || ''}`
+  const iniciales = `${(servicio.first_name || 'U').charAt(0)}${(servicio.last_name || 'U').charAt(0)}`
+  const avatarFreelancer = servicio.avatar || null
+  const emailFreelancer = servicio.email || ''
+  
+  const imagenes = servicio.gallery_images && servicio.gallery_images.length > 0 
+    ? servicio.gallery_images 
+    : ['/placeholder.svg']
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-neutral-950">
       <Navigation />
       
-      <main className="container mx-auto px-6 py-10 max-w-7xl">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Contratar servicios</h1>
-          <p className="text-muted-foreground">
-            Encuentra el profesional perfecto para tu proyecto
-          </p>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Breadcrumb */}
+        <div className="mb-6 text-sm text-gray-400">
+          <button onClick={() => router.push('/dashboard_cliente/contratar')} className="hover:text-teal-400 transition-colors">
+            Servicios
+          </button>
+          <span className="mx-2">/</span>
+          <span className="text-gray-300">{servicio.title}</span>
         </div>
 
-        {/* Búsqueda y filtros */}
-        <div className="mb-8 space-y-4">
-          {/* Barra de búsqueda */}
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar servicios o freelancers..."
-              className="pl-9"
-            />
-          </div>
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Columna principal - Izquierda */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Galería de imágenes */}
+            <Card className="overflow-hidden bg-neutral-900 border-gray-800">
+              {/* Imagen principal */}
+              <div className="aspect-video bg-neutral-800 relative">
+                <img
+                  src={imagenes[selectedImage]}
+                  alt={servicio.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/placeholder.svg'
+                  }}
+                />
+              </div>
 
-          {/* Filtros de categoría */}
-          <div className="flex flex-wrap gap-2">
-            {categorias.map((categoria) => (
-              <Button
-                key={categoria}
-                variant={categoriaSeleccionada === categoria ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setCategoriaSeleccionada(categoria)}
-              >
-                {categoria}
-              </Button>
-            ))}
-          </div>
-
-          {/* Contador de resultados */}
-          <div className="text-sm text-muted-foreground">
-            {serviciosFiltrados.length} servicio{serviciosFiltrados.length !== 1 ? 's' : ''} encontrado{serviciosFiltrados.length !== 1 ? 's' : ''}
-          </div>
-        </div>
-
-        {/* Loading */}
-        {loading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="ml-3 text-muted-foreground">Cargando servicios...</span>
-          </div>
-        )}
-
-        {/* Error */}
-        {error && !loading && (
-          <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-center">
-            <p className="text-sm text-red-400">{error}</p>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={cargarServicios}
-              className="mt-3"
-            >
-              Reintentar
-            </Button>
-          </div>
-        )}
-
-        {/* Sin resultados */}
-        {!loading && !error && serviciosFiltrados.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground mb-2">
-              {busqueda || categoriaSeleccionada !== 'Todas' 
-                ? 'No se encontraron servicios con los filtros aplicados' 
-                : 'No hay servicios disponibles aún'}
-            </p>
-            {(busqueda || categoriaSeleccionada !== 'Todas') && (
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setBusqueda('')
-                  setCategoriaSeleccionada('Todas')
-                }}
-              >
-                Limpiar filtros
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Grid de servicios */}
-        {!loading && !error && serviciosFiltrados.length > 0 && (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {serviciosFiltrados.map((servicio) => {
-              const imagenPrincipal = servicio.gallery_images && servicio.gallery_images.length > 0
-                ? servicio.gallery_images[0]
-                : '/placeholder.svg'
-              
-              const nombreCompleto = `${servicio.freelancer.first_name} ${servicio.freelancer.last_name}`
-              const iniciales = `${servicio.freelancer.first_name.charAt(0)}${servicio.freelancer.last_name.charAt(0)}`
-
-              return (
-                <Card
-                  key={servicio.id}
-                  className="group overflow-hidden transition-all hover:shadow-lg hover:border-gray-700 duration-200"
-                >
-                  {/* Imagen */}
-                  <Link href={`/dashboard_cliente/contratar/${servicio.id}`}>
-                    <div className="aspect-video overflow-hidden bg-neutral-800 cursor-pointer">
+              {/* Miniaturas */}
+              {imagenes.length > 1 && (
+                <div className="p-4 flex gap-2 overflow-x-auto">
+                  {imagenes.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedImage(idx)}
+                      className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                        selectedImage === idx 
+                          ? 'border-teal-500 ring-2 ring-teal-500/50' 
+                          : 'border-gray-700 hover:border-gray-600'
+                      }`}
+                    >
                       <img
-                        src={imagenPrincipal}
-                        alt={servicio.title}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        src={img}
+                        alt={`Imagen ${idx + 1}`}
+                        className="w-full h-full object-cover"
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = '/placeholder.svg'
                         }}
                       />
-                    </div>
-                  </Link>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Card>
 
-                  {/* Contenido */}
-                  <div className="p-4">
-                    {/* Título */}
-                    <Link href={`/dashboard_cliente/contratar/${servicio.id}`}>
-                      <h3 className="line-clamp-2 text-base font-semibold leading-tight text-white mb-3 min-h-[2.5rem] cursor-pointer hover:text-blue-400 transition-colors">
-                        {servicio.title}
-                      </h3>
-                    </Link>
+            {/* Información del servicio */}
+            <Card className="p-6 bg-neutral-900 border-gray-800">
+              <div className="mb-4">
+                <Badge className="mb-3 bg-teal-600/20 text-teal-400 border-teal-600/30">
+                  {servicio.category}
+                </Badge>
+                <h1 className="text-3xl font-bold text-white mb-4">
+                  {servicio.title}
+                </h1>
+              </div>
 
-                    {/* Freelancer */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <Avatar className="h-7 w-7">
-                        <AvatarImage 
-                          src={servicio.freelancer.avatar || undefined} 
-                          alt={nombreCompleto} 
-                        />
-                        <AvatarFallback className="text-xs">{iniciales}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-xs text-gray-400 truncate">
-                        {nombreCompleto}
-                      </span>
-                    </div>
+              <div className="prose prose-invert max-w-none">
+                <h3 className="text-lg font-semibold text-white mb-3">Descripción</h3>
+                <p className="text-gray-300 leading-relaxed whitespace-pre-wrap">
+                  {servicio.description}
+                </p>
+              </div>
+            </Card>
 
-                    {/* Categoría y rating */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                      <span className="text-xs font-semibold">Nuevo</span>
-                      <Badge 
-                        variant="secondary" 
-                        className="ml-auto bg-blue-600/20 text-blue-400 border-none text-xs"
-                      >
-                        {servicio.category}
-                      </Badge>
-                    </div>
-
-                    {/* Precio y botón */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-xs text-gray-400">Desde</span>
-                        <div className="text-xl font-bold text-white">
-                          ${formatearPrecio(servicio.base_price)}
-                        </div>
-                      </div>
-                      <Link href={`/dashboard_cliente/contratar/${servicio.id}`}>
-                        <Button
-                          size="sm"
-                          className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                        >
-                          Ver más
-                        </Button>
-                      </Link>
+            {/* Características del servicio */}
+            <Card className="p-6 bg-neutral-900 border-gray-800">
+              <h3 className="text-lg font-semibold text-white mb-4">Lo que incluye este servicio</h3>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-teal-600/20 flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-teal-400" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-white">Entrega rápida</div>
+                    <div className="text-sm text-gray-400">
+                      {servicio.delivery_time} días de entrega
                     </div>
                   </div>
-                </Card>
-              )
-            })}
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-teal-600/20 flex items-center justify-center">
+                    <CheckCircle2 className="h-5 w-5 text-teal-400" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-white">Trabajo profesional</div>
+                    <div className="text-sm text-gray-400">
+                      Calidad garantizada
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-teal-600/20 flex items-center justify-center">
+                    <MessageCircle className="h-5 w-5 text-teal-400" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-white">Comunicación directa</div>
+                    <div className="text-sm text-gray-400">
+                      Chat con el freelancer
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-teal-600/20 flex items-center justify-center">
+                    <Package className="h-5 w-5 text-teal-400" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-white">Revisiones incluidas</div>
+                    <div className="text-sm text-gray-400">
+                      Ajustes según tu feedback
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
           </div>
-        )}
+
+          {/* Columna derecha - Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-8 space-y-6">
+              {/* Card del freelancer */}
+              <Card className="p-6 bg-neutral-900 border-gray-800">
+                <div className="text-sm text-gray-400 mb-3">Freelancer</div>
+                <div className="flex items-center gap-4 mb-6">
+                  <Avatar className="h-14 w-14">
+                    <AvatarImage 
+                      src={avatarFreelancer || undefined} 
+                      alt={nombreCompleto} 
+                    />
+                    <AvatarFallback className="text-lg bg-teal-600 text-white">
+                      {iniciales}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="font-semibold text-white text-lg">
+                      {nombreCompleto}
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      {emailFreelancer}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rating placeholder */}
+                <div className="flex items-center gap-2 py-3 border-t border-gray-800">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star key={star} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    ))}
+                  </div>
+                  <span className="text-sm font-medium text-white">5.0</span>
+                  <span className="text-sm text-gray-400">(Nuevo)</span>
+                </div>
+              </Card>
+
+              {/* Card de precio y contratación */}
+              <Card className="p-6 bg-neutral-900 border-gray-800">
+                <div className="mb-6">
+                  <div className="text-sm text-gray-400 mb-2">Precio del servicio</div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold text-teal-400">
+                      ${formatearPrecio(servicio.base_price)}
+                    </span>
+                    <span className="text-gray-400">USD</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-400">Tiempo de entrega</span>
+                    <span className="text-white font-medium">{servicio.delivery_time} días</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-400">Revisiones</span>
+                    <span className="text-white font-medium">Incluidas</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {/* MODIFICACIÓN: Pasar serviceId al componente */}
+                  <ContratarDialog serviceId={servicio.id}>
+                    <Button className="w-full py-6 text-lg font-semibold bg-teal-600 hover:bg-teal-700 text-white rounded-xl shadow-lg hover:shadow-teal-600/25 transition-all">
+                      Contratar servicio
+                    </Button>
+                  </ContratarDialog>
+
+                  <Button 
+                    variant="outline"
+                    className="w-full py-6 rounded-xl border-gray-700 text-gray-200 hover:bg-neutral-800 transition-all"
+                    onClick={() => {
+                      router.push(`/dashboard_cliente/mensajes?freelancerId=${servicio.freelancer_id}`)
+                    }}
+                  >
+                    <MessageCircle className="h-5 w-5 mr-2" />
+                    Contactar freelancer
+                  </Button>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-gray-800">
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <CheckCircle2 className="h-4 w-4 text-teal-400" />
+                    <span>Protección al comprador</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-400 mt-2">
+                    <CheckCircle2 className="h-4 w-4 text-teal-400" />
+                    <span>Pago seguro</span>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Botón para volver */}
+              <Button
+                variant="ghost"
+                className="w-full text-gray-400 hover:text-white"
+                onClick={() => router.push('/dashboard_cliente/contratar')}
+              >
+                ← Volver a todos los servicios
+              </Button>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   )

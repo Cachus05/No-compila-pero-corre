@@ -1,14 +1,39 @@
-'use client'
+"use client"
 
 import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Navigation } from "@/components/navigation_cliente"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Search, Star, Loader2 } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Search, Loader2, CheckCircle2, Clock, DollarSign, FileText, AlertCircle, Star, Eye } from 'lucide-react'
+
+interface Contrato {
+  id: number
+  client_id: number
+  service_title: string
+  category: string
+  budget: number | string
+  status: string
+  deadline: string
+  created_at: string
+  freelancer_first_name: string
+  freelancer_last_name: string
+  freelancer_email: string
+}
+
+interface Pago {
+  id: number
+  amount: number | string
+  payment_method: string
+  status: string
+  payment_date: string
+  service_title: string
+  freelancer_first_name: string
+  freelancer_last_name: string
+}
 
 interface Servicio {
   id: number
@@ -16,439 +41,460 @@ interface Servicio {
   description: string
   category: string
   base_price: number | string
+  delivery_time: number
   gallery_images: string[]
-  freelancer: {
-    id: number
-    first_name: string
-    last_name: string
-    avatar: string | null
-    email: string
-  }
+  first_name: string
+  last_name: string
+  avatar: string | null
 }
 
 export default function DashboardClientePage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [usuario, setUsuario] = useState<any>(null)
-  const [query, setQuery] = useState('')
-  const [servicios, setServicios] = useState<Servicio[]>([])
-  const [proyectos, setProyectos] = useState<any[]>([])
+  const [contratos, setContratos] = useState<Contrato[]>([])
+  const [pagos, setPagos] = useState<Pago[]>([])
+  const [serviciosDestacados, setServiciosDestacados] = useState<Servicio[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadingProyectos, setLoadingProyectos] = useState(false)
-  const [error, setError] = useState('')
-
-  const formatearPrecio = (precio: number | string): string => {
-    const precioNumero = typeof precio === 'string' ? parseFloat(precio) : precio
-    return isNaN(precioNumero) ? '0.00' : precioNumero.toFixed(2)
-  }
+  const [contratoExitoso, setContratoExitoso] = useState(false)
 
   useEffect(() => {
-    try {
-      const usuarioGuardado = localStorage.getItem('usuario')
-      if (usuarioGuardado) {
-        setUsuario(JSON.parse(usuarioGuardado))
-      }
-    } catch (e) {
-      console.error('No se pudo parsear usuario del localStorage', e)
+    const usuarioGuardado = localStorage.getItem('usuario')
+    if (!usuarioGuardado) {
+      router.push('/login')
+      return
     }
-  }, [])
+    setUsuario(JSON.parse(usuarioGuardado))
 
-  useEffect(() => {
-    cargarServicios()
-  }, [])
+    // Verificar si viene de un contrato exitoso
+    const contratoId = searchParams.get('contratoExitoso')
+    if (contratoId) {
+      setContratoExitoso(true)
+      setTimeout(() => {
+        setContratoExitoso(false)
+        router.replace('/dashboard_cliente')
+      }, 5000)
+    }
+  }, [router, searchParams])
 
   useEffect(() => {
     if (usuario) {
-      cargarProyectos()
+      cargarDatos()
     }
   }, [usuario])
 
-  const cargarServicios = async () => {
+  const cargarDatos = async () => {
+    setLoading(true)
     try {
-      setLoading(true)
-      const response = await fetch('/api/services')
+      const token = localStorage.getItem('token')
       
-      if (!response.ok) {
-        throw new Error('Error al cargar servicios')
+      // Cargar contratos
+      const resContratos = await fetch('/api/contratos', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (resContratos.ok) {
+        const dataContratos = await resContratos.json()
+        const misContratos = (dataContratos.contratos || []).filter(
+          (c: any) => usuario && c.client_id === usuario.id
+        )
+        setContratos(misContratos)
       }
 
-      const data = await response.json()
-      console.log('Servicios cargados:', data.servicios)
-      setServicios(data.servicios || [])
-      setError('')
-    } catch (err) {
-      console.error('Error al cargar servicios:', err)
-      setError('No se pudieron cargar los servicios')
+      // Cargar pagos
+      const resPagos = await fetch('/api/pagos', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (resPagos.ok) {
+        const dataPagos = await resPagos.json()
+        setPagos(dataPagos.pagos || [])
+      }
+
+      // Cargar servicios destacados
+      const resServicios = await fetch('/api/services')
+      if (resServicios.ok) {
+        const dataServicios = await resServicios.json()
+        setServiciosDestacados((dataServicios.servicios || []).slice(0, 3))
+      }
+
+    } catch (error) {
+      console.error('Error al cargar datos:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const cargarProyectos = async () => {
-    try {
-      setLoadingProyectos(true)
-      const token = localStorage.getItem('token')
-      
-      if (!token) {
-        console.log('No hay token disponible')
-        setProyectos([])
-        return
-      }
-
-      console.log('Cargando proyectos...')
-      const response = await fetch('/api/projects', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      
-      if (!response.ok) {
-        console.log('Error en la respuesta de proyectos:', response.status)
-        setProyectos([])
-        return
-      }
-
-      const data = await response.json()
-      console.log('Proyectos recibidos:', data)
-      setProyectos(data.proyectos || [])
-    } catch (err) {
-      console.error('Error al cargar proyectos:', err)
-      setProyectos([])
-    } finally {
-      setLoadingProyectos(false)
-    }
+  const formatearFecha = (fecha: string) => {
+    return new Date(fecha).toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })
   }
 
-  const serviciosFiltrados = servicios.filter(servicio => {
-    if (!query.trim()) return true
+  const formatearPrecio = (precio: number | string) => {
+    const precioNumero = typeof precio === 'string' ? parseFloat(precio) : precio
+    return isNaN(precioNumero) ? '0.00' : precioNumero.toFixed(2)
+  }
+
+  const calcularTotalGastado = () => {
+    return pagos.reduce((sum, p) => {
+      const amount = typeof p.amount === 'string' ? parseFloat(p.amount) : p.amount
+      return sum + (isNaN(amount) ? 0 : amount)
+    }, 0)
+  }
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      pending: { label: 'Pendiente', className: 'bg-yellow-600/20 text-yellow-400 border-yellow-600/30' },
+      in_progress: { label: 'En progreso', className: 'bg-blue-600/20 text-blue-400 border-blue-600/30' },
+      completed: { label: 'Completado', className: 'bg-green-600/20 text-green-400 border-green-600/30' },
+      cancelled: { label: 'Cancelado', className: 'bg-red-600/20 text-red-400 border-red-600/30' },
+    }
     
-    const searchLower = query.toLowerCase()
-    return (
-      servicio.title.toLowerCase().includes(searchLower) ||
-      servicio.description.toLowerCase().includes(searchLower) ||
-      servicio.category.toLowerCase().includes(searchLower) ||
-      `${servicio.freelancer.first_name} ${servicio.freelancer.last_name}`.toLowerCase().includes(searchLower)
-    )
-  })
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending
+    return <Badge className={config.className}>{config.label}</Badge>
+  }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-neutral-950">
       <Navigation />
-
+      
       <main className="container mx-auto px-6 py-10 max-w-7xl">
-        <div className="grid gap-10">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+        {/* Alert de éxito */}
+        {contratoExitoso && (
+          <div className="mb-6 rounded-lg bg-green-600/20 border border-green-600/30 p-4 flex items-start gap-3">
+            <CheckCircle2 className="h-5 w-5 text-green-400 flex-shrink-0 mt-0.5" />
             <div>
-              <h1 className="text-3xl font-bold">Bienvenido, {usuario?.first_name || 'Cliente'}</h1>
-              <p className="text-muted-foreground text-sm sm:text-base mt-1">
-                Panel del cliente — busca servicios, contrata profesionales y gestiona pagos de forma segura
+              <h3 className="font-semibold text-green-400 mb-1">¡Contrato creado exitosamente!</h3>
+              <p className="text-sm text-green-300">
+                Tu pago se ha procesado correctamente. El freelancer ha sido notificado y pronto comenzará a trabajar en tu proyecto.
               </p>
             </div>
+          </div>
+        )}
 
-            <div className="w-full sm:w-80">
-              <label className="relative block">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscar servicios o profesionales..."
-                  className="pl-9"
-                />
-              </label>
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">
+            Bienvenido, {usuario?.first_name || 'cliente'}
+          </h1>
+          <p className="text-gray-400">
+            Panel del cliente — busca servicios, contacta profesionales y gestiona pagos de forma segura
+          </p>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid gap-6 md:grid-cols-3 mb-8">
+          <Card className="p-6 bg-neutral-900 border-gray-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400 mb-1">Contratos activos</p>
+                <p className="text-3xl font-bold text-white">{contratos.length}</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-teal-600/20 flex items-center justify-center">
+                <FileText className="h-6 w-6 text-teal-400" />
+              </div>
             </div>
+          </Card>
+
+          <Card className="p-6 bg-neutral-900 border-gray-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400 mb-1">Total gastado</p>
+                <p className="text-3xl font-bold text-white">
+                  ${formatearPrecio(calcularTotalGastado())}
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-blue-600/20 flex items-center justify-center">
+                <DollarSign className="h-6 w-6 text-blue-400" />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6 bg-neutral-900 border-gray-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-400 mb-1">Pagos realizados</p>
+                <p className="text-3xl font-bold text-white">{pagos.length}</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-green-600/20 flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 text-green-400" />
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Servicios destacados */}
+        <Card className="p-6 bg-neutral-900 border-gray-800 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-white">
+              Servicios destacados ({serviciosDestacados.length})
+            </h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/dashboard_cliente/contratar')}
+              className="text-teal-400 hover:text-teal-300"
+            >
+              Actualizar
+            </Button>
           </div>
 
-          <div className="grid gap-8 lg:grid-cols-3">
-            <div className="lg:col-span-2 space-y-8">
-              <Card className="p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-semibold">
-                    Servicios destacados
-                    {serviciosFiltrados.length > 0 && (
-                      <span className="ml-2 text-sm text-muted-foreground">
-                        ({serviciosFiltrados.length})
-                      </span>
-                    )}
-                  </h2>
-                  {!loading && servicios.length > 0 && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={cargarServicios}
-                    >
-                      Actualizar
-                    </Button>
-                  )}
-                </div>
-
-                {loading && (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    <span className="ml-3 text-muted-foreground">Cargando servicios...</span>
-                  </div>
-                )}
-
-                {error && !loading && (
-                  <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-center">
-                    <p className="text-sm text-red-400">{error}</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={cargarServicios}
-                      className="mt-3"
-                    >
-                      Reintentar
-                    </Button>
-                  </div>
-                )}
-
-                {!loading && !error && serviciosFiltrados.length === 0 && (
-                  <div className="text-center py-12">
-                    <p className="text-muted-foreground">
-                      {query ? 'No se encontraron servicios con tu búsqueda' : 'No hay servicios disponibles aún'}
-                    </p>
-                  </div>
-                )}
-
-                {!loading && !error && serviciosFiltrados.length > 0 && (
-                  <section className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-                    {serviciosFiltrados.map((servicio) => {
-                      const imagenPrincipal = servicio.gallery_images && servicio.gallery_images.length > 0
-                        ? servicio.gallery_images[0]
-                        : '/placeholder.svg'
-                      
-                      const nombreCompleto = `${servicio.freelancer.first_name} ${servicio.freelancer.last_name}`
-                      const iniciales = `${servicio.freelancer.first_name.charAt(0)}${servicio.freelancer.last_name.charAt(0)}`
-
-                      return (
-                        <Card
-                          key={servicio.id}
-                          className="group overflow-hidden transition-all hover:shadow-lg hover:border-gray-700 duration-200"
-                        >
-                          <div className="aspect-video overflow-hidden bg-neutral-800 cursor-pointer">
-                            <Link href={`/dashboard_cliente/contratar/${servicio.id}`}>
-                              <img
-                                src={imagenPrincipal}
-                                alt={servicio.title}
-                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = '/placeholder.svg'
-                                }}
-                              />
-                            </Link>
-                          </div>
-
-                          <div className="p-5">
-                            <Link href={`/dashboard_cliente/contratar/${servicio.id}`}>
-                              <h3 className="line-clamp-2 text-lg font-semibold leading-tight text-white mb-3 min-h-[3.5rem] cursor-pointer hover:text-blue-400 transition-colors">
-                                {servicio.title}
-                              </h3>
-                            </Link>
-
-                            <div className="flex items-center gap-2 mb-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage 
-                                  src={servicio.freelancer.avatar || undefined} 
-                                  alt={nombreCompleto} 
-                                />
-                                <AvatarFallback>{iniciales}</AvatarFallback>
-                              </Avatar>
-                              <span className="text-sm text-gray-400 truncate">
-                                {nombreCompleto}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2 mb-3">
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              <span className="font-semibold">Nuevo</span>
-                              <Badge 
-                                variant="secondary" 
-                                className="ml-auto bg-blue-600/20 text-blue-400 border-none"
-                              >
-                                {servicio.category}
-                              </Badge>
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <span className="text-sm text-gray-400">Desde</span>
-                                <div className="text-2xl font-bold text-white">
-                                  ${formatearPrecio(servicio.base_price)}
-                                </div>
-                              </div>
-                              <Link href={`/dashboard_cliente/contratar/${servicio.id}`}>
-                                <Button
-                                  size="sm"
-                                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                                >
-                                  Contratar
-                                </Button>
-                              </Link>
-                            </div>
-                          </div>
-                        </Card>
-                      )
-                    })}
-                  </section>
-                )}
-              </Card>
-
-              <Card className="p-8">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">
-                    Contratos activos
-                    {proyectos.length > 0 && (
-                      <span className="ml-2 text-sm text-muted-foreground">
-                        ({proyectos.length})
-                      </span>
-                    )}
-                  </h2>
-                </div>
-
-                {loadingProyectos && (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-sm text-muted-foreground">Cargando contratos...</span>
-                  </div>
-                )}
-
-                {!loadingProyectos && proyectos.length === 0 && (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">No tienes contratos activos aún.</p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Explora los servicios disponibles y contrata a un freelancer
-                    </p>
-                  </div>
-                )}
-
-                {!loadingProyectos && proyectos.length > 0 && (
-                  <div className="space-y-4">
-                    {proyectos.map((proyecto) => {
-                      const imagenServicio = proyecto.service_images && proyecto.service_images.length > 0
-                        ? proyecto.service_images[0]
-                        : '/placeholder.svg'
-                      
-                      const nombreFreelancer = `${proyecto.freelancer_first_name} ${proyecto.freelancer_last_name}`
-                      const iniciales = `${proyecto.freelancer_first_name.charAt(0)}${proyecto.freelancer_last_name.charAt(0)}`
-
-                      return (
-                        <Card key={proyecto.id} className="p-4 hover:bg-neutral-800/50 transition-colors">
-                          <div className="flex gap-4">
-                            <div className="w-24 h-24 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0">
-                              <img
-                                src={imagenServicio}
-                                alt={proyecto.service_title}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = '/placeholder.svg'
-                                }}
-                              />
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold truncate mb-1">
-                                {proyecto.service_title}
-                              </h3>
-                              <div className="flex items-center gap-2 mb-2">
-                                <Avatar className="h-6 w-6">
-                                  <AvatarImage 
-                                    src={proyecto.freelancer_avatar || undefined} 
-                                    alt={nombreFreelancer} 
-                                  />
-                                  <AvatarFallback className="text-xs">{iniciales}</AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm text-muted-foreground">
-                                  {nombreFreelancer}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-3 text-sm">
-                                <Badge 
-                                  variant={
-                                    proyecto.status === 'pending' ? 'secondary' :
-                                    proyecto.status === 'active' ? 'default' :
-                                    proyecto.status === 'review' ? 'default' :
-                                    proyecto.status === 'completed' ? 'default' :
-                                    'destructive'
-                                  }
-                                >
-                                  {proyecto.status === 'pending' ? 'Pendiente' :
-                                   proyecto.status === 'active' ? 'Activo' :
-                                   proyecto.status === 'review' ? 'En revisión' :
-                                   proyecto.status === 'completed' ? 'Completado' :
-                                   'Otro'}
-                                </Badge>
-                                <span className="text-muted-foreground">
-                                  ${formatearPrecio(proyecto.budget)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </Card>
-                      )
-                    })}
-                  </div>
-                )}
-              </Card>
-
-              <Card className="p-8">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">Pagos y facturación</h2>
-                  <Link href="/pagos">
-                    <Button variant="outline">Ir a pagos</Button>
-                  </Link>
-                </div>
-                <div className="text-muted-foreground">Resumen de pagos recientes y estado.</div>
-              </Card>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
             </div>
-
-            <aside className="space-y-6">
-              <Card className="p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold">Mensajes</h3>
-                    <p className="text-sm text-muted-foreground">Comunícate con tus freelancers</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Link href="/dashboard_cliente/mensajes">
-                      <Button size="sm">Ir a mensajes</Button>
-                    </Link>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-6">
-                <h3 className="font-semibold mb-3">Acciones rápidas</h3>
-                <div className="flex flex-col gap-2">
-                  <Link href="/dashboard_cliente/contratar">
-                    <Button variant="outline" className="w-full">Buscar profesionales</Button>
+          ) : serviciosDestacados.length === 0 ? (
+            <p className="text-center text-gray-500 py-8">No hay servicios disponibles</p>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-3">
+              {serviciosDestacados.map((servicio) => {
+                const imagenPrincipal = servicio.gallery_images?.[0] || '/placeholder.svg'
+                const iniciales = `${servicio.first_name?.charAt(0) || 'U'}${servicio.last_name?.charAt(0) || 'U'}`
+                
+                return (
+                  <Link
+                    key={servicio.id}
+                    href={`/dashboard_cliente/contratar/${servicio.id}`}
+                    className="group"
+                  >
+                    <Card className="overflow-hidden bg-neutral-800 border-gray-700 hover:border-gray-600 transition-all">
+                      <div className="aspect-video overflow-hidden bg-neutral-900">
+                        <img
+                          src={imagenPrincipal}
+                          alt={servicio.title}
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/placeholder.svg'
+                          }}
+                        />
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-semibold text-white mb-2 line-clamp-2">
+                          {servicio.title}
+                        </h3>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={servicio.avatar || undefined} />
+                            <AvatarFallback className="text-xs">{iniciales}</AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs text-gray-400">
+                            {servicio.first_name} {servicio.last_name}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <Badge className="bg-teal-600/20 text-teal-400 border-none text-xs">
+                            {servicio.category}
+                          </Badge>
+                          <div className="text-right">
+                            <div className="text-xs text-gray-400">Desde</div>
+                            <div className="text-lg font-bold text-white">
+                              ${formatearPrecio(servicio.base_price)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
                   </Link>
-                </div>
-              </Card>
+                )
+              })}
+            </div>
+          )}
+        </Card>
 
-              <Card className="p-6">
-                <h3 className="font-semibold mb-3">Estadísticas</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Servicios disponibles</span>
-                    <span className="font-semibold">{servicios.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Categorías</span>
-                    <span className="font-semibold">
-                      {new Set(servicios.map(s => s.category)).size}
-                    </span>
-                  </div>
-                </div>
-              </Card>
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Contratos activos */}
+          <div className="lg:col-span-2">
+            <Card className="p-6 bg-neutral-900 border-gray-800">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-white">Contratos activos</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/dashboard_cliente/contratar')}
+                  className="border-gray-700"
+                >
+                  Buscar profesionales
+                </Button>
+              </div>
 
-              <Card className="p-6">
-                <h3 className="font-semibold mb-3">Seguridad de pagos</h3>
-                <p className="text-sm text-muted-foreground">Pagos protegidos y gestión de disputas</p>
-                <div className="mt-4 flex justify-end">
-                  <Link href="/ayuda/pagos">
-                    <Button variant="ghost">Más info</Button>
-                  </Link>
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
                 </div>
-              </Card>
-            </aside>
+              ) : contratos.length === 0 ? (
+                <div className="text-center py-12">
+                  <AlertCircle className="h-12 w-12 mx-auto mb-4 text-gray-600" />
+                  <p className="text-gray-400 mb-2">No tienes contratos activos aún.</p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Explora los servicios disponibles y contrata a un freelancer
+                  </p>
+                  <Button
+                    onClick={() => router.push('/dashboard_cliente/contratar')}
+                    className="bg-teal-600 hover:bg-teal-700"
+                  >
+                    Explorar servicios
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {contratos.map((contrato) => (
+                    <div
+                      key={contrato.id}
+                      className="p-4 rounded-lg bg-neutral-800 border border-gray-700 hover:border-gray-600 transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-white mb-1">
+                            {contrato.service_title}
+                          </h3>
+                          <p className="text-sm text-gray-400">
+                            Freelancer: {contrato.freelancer_first_name} {contrato.freelancer_last_name}
+                          </p>
+                        </div>
+                        {getStatusBadge(contrato.status)}
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-500 mb-1">Presupuesto</p>
+                          <p className="font-semibold text-white">${formatearPrecio(contrato.budget)}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 mb-1">Fecha límite</p>
+                          <p className="font-semibold text-white">
+                            {formatearFecha(contrato.deadline)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 mb-1">Categoría</p>
+                          <Badge variant="secondary" className="bg-blue-600/20 text-blue-400 border-none">
+                            {contrato.category}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex gap-2">
+                        <Button
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                          onClick={() => router.push(`/dashboard_cliente/proyecto/${contrato.id}/avances`)}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Ver avances
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => router.push('/dashboard_cliente/mensajes')}
+                          className="border-gray-700"
+                        >
+                          Ver chat
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-gray-400"
+                        >
+                          Ver detalles
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Pagos recientes */}
+            <Card className="p-6 bg-neutral-900 border-gray-800">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-white">Pagos recientes</h3>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-teal-400 hover:text-teal-300"
+                >
+                  Ver todos
+                </Button>
+              </div>
+
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-teal-500" />
+                </div>
+              ) : pagos.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  No hay pagos registrados
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {pagos.slice(0, 5).map((pago) => (
+                    <div
+                      key={pago.id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-neutral-800"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-green-600/20 flex items-center justify-center">
+                          <CheckCircle2 className="h-5 w-5 text-green-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">
+                            ${formatearPrecio(pago.amount)}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {formatearFecha(pago.payment_date)}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge className="bg-green-600/20 text-green-400 border-none text-xs">
+                        Completado
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* Acciones rápidas */}
+            <Card className="p-6 bg-neutral-900 border-gray-800">
+              <h3 className="font-semibold text-white mb-4">Acciones rápidas</h3>
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-gray-700 text-gray-300"
+                  onClick={() => router.push('/dashboard_cliente/contratar')}
+                >
+                  <Search className="h-4 w-4 mr-2" />
+                  Buscar profesionales
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-gray-700 text-gray-300"
+                  onClick={() => router.push('/dashboard_cliente/mensajes')}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Ver mensajes
+                </Button>
+              </div>
+            </Card>
+
+            {/* Seguridad de pagos */}
+            <Card className="p-6 bg-neutral-900 border-gray-800">
+              <h3 className="font-semibold text-white mb-3">Seguridad de pagos</h3>
+              <p className="text-sm text-gray-400 mb-3">
+                Pagos protegidos y gestión de disputas
+              </p>
+              <Button
+                variant="link"
+                size="sm"
+                className="text-teal-400 hover:text-teal-300 p-0"
+              >
+                Más info →
+              </Button>
+            </Card>
           </div>
         </div>
       </main>

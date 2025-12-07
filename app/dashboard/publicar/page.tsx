@@ -88,7 +88,7 @@ export default function PublicarPage() {
       
       setSubmitted(true)
       
-      // ✅ NOTIFICAR AL DASHBOARD QUE SE PUBLICÓ UN NUEVO SERVICIO
+  // NOTIFICAR AL DASHBOARD QUE SE PUBLICÓ UN NUEVO SERVICIO
       localStorage.setItem('servicios_actualizados', Date.now().toString())
       
       // Redirigir al dashboard después de 2 segundos

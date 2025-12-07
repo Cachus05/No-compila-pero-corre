@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Star, Mail, User as UserIcon, Plus, RefreshCw, Loader2 } from "lucide-react"
+import { Star, Mail, User as UserIcon, Plus, RefreshCw, Loader2, MessageCircle } from "lucide-react"
 
 interface Usuario {
   id: number
@@ -31,6 +31,23 @@ interface Servicio {
   orders_count: number
   created_at: string
 }
+
+interface Proyecto {
+  id: number
+  service_id: number
+  client_id: number
+  freelancer_id: number
+  status: string
+  total_price: number
+  created_at: string
+  updated_at: string
+  service_title: string
+  service_images: string[]
+  client_first_name: string
+  client_last_name: string
+  client_avatar: string | null
+  client_email: string
+}
  
 export default function Dashboard() {
   const router = useRouter();
@@ -38,8 +55,9 @@ export default function Dashboard() {
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingServicios, setLoadingServicios] = useState(true);
-  const [proyectos, setProyectos] = useState<any[]>([])
+  const [proyectos, setProyectos] = useState<Proyecto[]>([])
   const [loadingProyectos, setLoadingProyectos] = useState(false)
+  const [ventasCount, setVentasCount] = useState(0)
   const [isMounted, setIsMounted] = useState(false);
   
  
@@ -66,7 +84,7 @@ export default function Dashboard() {
     }
   }, [router]);
 
-  // Recargar servicios cuando la ventana obtiene el foco (vuelves de otra página)
+  // Recargar servicios cuando la ventana obtiene el foco
   useEffect(() => {
     const handleFocus = () => {
       const token = localStorage.getItem('token');
@@ -75,7 +93,6 @@ export default function Dashboard() {
       }
     };
 
-    // También escuchar eventos de storage para sincronizar entre pestañas
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'servicios_actualizados') {
         const token = localStorage.getItem('token');
@@ -120,12 +137,10 @@ export default function Dashboard() {
       const token = localStorage.getItem('token')
 
       if (!token) {
-        console.log('No hay token disponible')
         setProyectos([])
         return
       }
 
-      console.log('Cargando proyectos...')
       const response = await fetch('/api/projects', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -133,14 +148,13 @@ export default function Dashboard() {
       })
 
       if (!response.ok) {
-        console.log('Error en la respuesta de proyectos:', response.status)
         setProyectos([])
         return
       }
 
       const data = await response.json()
-      console.log('Proyectos recibidos:', data)
       setProyectos(data.proyectos || [])
+      setVentasCount(data.ventas || 0)
     } catch (err) {
       console.error('Error al cargar proyectos:', err)
       setProyectos([])
@@ -155,7 +169,6 @@ export default function Dashboard() {
     }
   }, [usuario])
 
-  // Función manual para refrescar servicios
   const refrescarServicios = () => {
     const token = localStorage.getItem('token');
     if (usuario && token) {
@@ -163,13 +176,9 @@ export default function Dashboard() {
     }
   };
 
-
- 
-  const handleCerrarSesion = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('usuario');
-    router.push('/login');
-  };
+  const handleContactarCliente = (clientId: number) => {
+    router.push(`/dashboard/mensajes?freelancerId=${clientId}`)
+  }
  
   if (!isMounted || loading) {
     return (
@@ -266,7 +275,7 @@ export default function Dashboard() {
  
               <div className="mt-4 flex justify-between text-sm text-gray-400 border-t border-gray-700 pt-4">
                 <span>Servicios: {servicios.length}</span>
-                <span>Ventas: 0</span>
+                <span>Ventas: {ventasCount}</span>
               </div>
 
               <div className="mt-4">
@@ -436,30 +445,45 @@ export default function Dashboard() {
                       ))}
                     </div>
 
-                    <Card className="p-8 mt-8">
+                    <Card className="p-8 mt-8 bg-neutral-900 border-gray-800">
                       <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-semibold">
-                          Contratos activos
+                        <h2 className="text-lg font-semibold text-white">
+                          {usuario.user_type === 'freelancer' ? 'Contratos pendientes' : 'Contratos activos'}
                           {proyectos.length > 0 && (
-                            <span className="ml-2 text-sm text-muted-foreground">
+                            <span className="ml-2 text-sm text-gray-400">
                               ({proyectos.length})
                             </span>
                           )}
                         </h2>
+                        <Button
+                          onClick={cargarProyectos}
+                          variant="outline"
+                          size="sm"
+                          className="border-gray-700 hover:bg-gray-800"
+                          disabled={loadingProyectos}
+                        >
+                          <RefreshCw className={`h-4 w-4 ${loadingProyectos ? 'animate-spin' : ''}`} />
+                        </Button>
                       </div>
 
                       {loadingProyectos && (
                         <div className="flex items-center justify-center py-8">
-                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                          <span className="ml-2 text-sm text-muted-foreground">Cargando contratos...</span>
+                          <Loader2 className="h-6 w-6 animate-spin text-teal-500" />
+                          <span className="ml-2 text-sm text-gray-400">Cargando contratos...</span>
                         </div>
                       )}
 
                       {!loadingProyectos && proyectos.length === 0 && (
                         <div className="text-center py-8">
-                          <p className="text-muted-foreground">No tienes contratos activos aún.</p>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Explora los servicios disponibles y contrata a un freelancer
+                          <p className="text-gray-400">
+                            {usuario.user_type === 'freelancer'
+                              ? 'No tienes contratos pendientes aún.'
+                              : 'No tienes contratos activos aún.'}
+                          </p>
+                          <p className="text-sm text-gray-500 mt-2">
+                            {usuario.user_type === 'freelancer'
+                              ? 'Los clientes que contraten tus servicios aparecerán aquí'
+                              : 'Explora los servicios disponibles y contrata a un freelancer'}
                           </p>
                         </div>
                       )}
@@ -471,11 +495,21 @@ export default function Dashboard() {
                               ? proyecto.service_images[0]
                               : '/placeholder.svg'
                             
-                            const nombreFreelancer = `${proyecto.freelancer_first_name} ${proyecto.freelancer_last_name}`
-                            const iniciales = `${proyecto.freelancer_first_name.charAt(0)}${proyecto.freelancer_last_name.charAt(0)}`
+                            const nombreCliente = `${proyecto.client_first_name} ${proyecto.client_last_name}`
+                            const inicialesCliente = `${proyecto.client_first_name.charAt(0)}${proyecto.client_last_name.charAt(0)}`
+
+                            const statusConfig = {
+                              pending: { label: 'Pendiente', variant: 'secondary' as const, color: 'bg-yellow-500/20 text-yellow-400' },
+                              active: { label: 'Activo', variant: 'default' as const, color: 'bg-green-500/20 text-green-400' },
+                              review: { label: 'En revisión', variant: 'default' as const, color: 'bg-blue-500/20 text-blue-400' },
+                              completed: { label: 'Completado', variant: 'default' as const, color: 'bg-teal-500/20 text-teal-400' },
+                              cancelled: { label: 'Cancelado', variant: 'destructive' as const, color: 'bg-red-500/20 text-red-400' }
+                            }
+
+                            const status = statusConfig[proyecto.status as keyof typeof statusConfig] || statusConfig.pending
 
                             return (
-                              <Card key={proyecto.id} className="p-4 hover:bg-neutral-800/50 transition-colors">
+                              <Card key={proyecto.id} className="p-4 hover:bg-neutral-800/50 transition-colors border-gray-700">
                                 <div className="flex gap-4">
                                   <div className="w-24 h-24 bg-neutral-800 rounded-lg overflow-hidden flex-shrink-0">
                                     <img
@@ -489,41 +523,56 @@ export default function Dashboard() {
                                   </div>
 
                                   <div className="flex-1 min-w-0">
-                                    <h3 className="font-semibold truncate mb-1">
+                                    <h3 className="font-semibold truncate mb-1 text-white">
                                       {proyecto.service_title}
                                     </h3>
                                     <div className="flex items-center gap-2 mb-2">
                                       <Avatar className="h-6 w-6">
                                         <AvatarImage 
-                                          src={proyecto.freelancer_avatar || undefined} 
-                                          alt={nombreFreelancer} 
+                                          src={proyecto.client_avatar || undefined} 
+                                          alt={nombreCliente} 
                                         />
-                                        <AvatarFallback className="text-xs">{iniciales}</AvatarFallback>
+                                        <AvatarFallback className="text-xs">{inicialesCliente}</AvatarFallback>
                                       </Avatar>
-                                      <span className="text-sm text-muted-foreground">
-                                        {nombreFreelancer}
+                                      <span className="text-sm text-gray-400">
+                                        {nombreCliente}
                                       </span>
                                     </div>
-                                    <div className="flex items-center gap-3 text-sm">
-                                      <Badge 
-                                        variant={
-                                          proyecto.status === 'pending' ? 'secondary' :
-                                          proyecto.status === 'active' ? 'default' :
-                                          proyecto.status === 'review' ? 'default' :
-                                          proyecto.status === 'completed' ? 'default' :
-                                          'destructive'
-                                        }
-                                      >
-                                        {proyecto.status === 'pending' ? 'Pendiente' :
-                                        proyecto.status === 'active' ? 'Activo' :
-                                        proyecto.status === 'review' ? 'En revisión' :
-                                        proyecto.status === 'completed' ? 'Completado' :
-                                        'Otro'}
+                                    <div className="flex items-center gap-3 text-sm flex-wrap">
+                                      <Badge className={status.color}>
+                                        {status.label}
                                       </Badge>
-                                      <span className="text-muted-foreground">
-                                        Contratado el {new Date(proyecto.created_at).toLocaleDateString()}
+                                      <span className="text-gray-400">
+                                        ${proyecto.total_price}
+                                      </span>
+                                      <span className="text-gray-500">
+                                        {new Date(proyecto.created_at).toLocaleDateString('es-ES', {
+                                          day: '2-digit',
+                                          month: 'short',
+                                          year: 'numeric'
+                                        })}
                                       </span>
                                     </div>
+                                  </div>
+
+                                  <div className="flex flex-col gap-2">
+                                    <Button
+                                      size="sm"
+                                      className="bg-teal-500 hover:bg-teal-600 text-black font-semibold"
+                                      onClick={() => router.push(`/dashboard/agregar-avances?projectId=${proyecto.id}`)}
+                                    >
+                                      <Plus className="h-4 w-4 mr-2" />
+                                      Agregar avance
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-gray-700 hover:bg-gray-800"
+                                      onClick={() => handleContactarCliente(proyecto.client_id)}
+                                    >
+                                      <MessageCircle className="h-4 w-4 mr-2" />
+                                      Contactar
+                                    </Button>
                                   </div>
                                 </div>
                               </Card>
@@ -542,4 +591,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

@@ -47,22 +47,27 @@ export default function LoginPage() {
           throw new Error('Respuesta incompleta del servidor')
         }
 
+        // GUARDAR TOKEN Y USERID
         localStorage.setItem('token', data.token)
+        localStorage.setItem('userId', data.usuario.id.toString())
         localStorage.setItem('usuario', JSON.stringify(data.usuario))
-        console.log(' Login exitoso, tipo de usuario:', data.usuario.user_type)
+        
+        console.log('Login exitoso, tipo de usuario:', data.usuario.user_type)
+        console.log('Token guardado:', data.token)
+        console.log('UserId guardado:', data.usuario.id)
         
         // Redirigir según el tipo de usuario
         if (data.usuario.user_type === 'client') {
-          console.log(' Redirigiendo a dashboard de cliente...')
+          console.log('Redirigiendo a dashboard de cliente...')
           router.push('/dashboard_cliente')
         } else if (data.usuario.user_type === 'freelancer') {
-          console.log(' Redirigiendo a dashboard de freelancer...')
+          console.log('Redirigiendo a dashboard de freelancer...')
           router.push('/dashboard')
         } else if (data.usuario.user_type === 'admin' || data.usuario.user_type === 'moderator') {
-          console.log(' Redirigiendo a dashboard de admin/moderador...')
+          console.log('Redirigiendo a dashboard de admin/moderador...')
           router.push('/dashboard')
         } else {
-          console.log(' Redirigiendo a dashboard por defecto...')
+          console.log('Redirigiendo a dashboard por defecto...')
           router.push('/dashboard')
         }
       } else {
@@ -140,7 +145,7 @@ export default function LoginPage() {
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-gray-200">Contraseña</Label>
                 <Link
-                  href="/recuperar-contrasena"
+                  href="/recuperar_contrasena"
                   className="text-sm text-teal-400 hover:text-teal-300 transition-colors"
                 >
                   ¿Olvidaste tu contraseña?

@@ -470,22 +470,22 @@ export default function TerminosCondiciones(): JSX.Element {
 
               <ul className="space-y-2 text-gray-300">
                 <li className="flex items-start gap-2">
-                  <span className="text-gray-300 mt-1">✓</span>
+                  <span className="text-gray-300 mt-1">•</span>
                   <span>Has leído y comprendido estos Términos y Condiciones</span>
                 </li>
 
                 <li className="flex items-start gap-2">
-                  <span className="text-gray-300 mt-1">✓</span>
+                  <span className="text-gray-300 mt-1">•</span>
                   <span>Aceptas estar legalmente vinculado por estos términos</span>
                 </li>
 
                 <li className="flex items-start gap-2">
-                  <span className="text-gray-300 mt-1">✓</span>
+                  <span className="text-gray-300 mt-1">•</span>
                   <span>Eres elegible para usar la plataforma según los requisitos establecidos</span>
                 </li>
 
                 <li className="flex items-start gap-2">
-                  <span className="text-gray-300 mt-1">✓</span>
+                  <span className="text-gray-300 mt-1">•</span>
                   <span>Cumplirás con todas las obligaciones descritas</span>
                 </li>
               </ul>

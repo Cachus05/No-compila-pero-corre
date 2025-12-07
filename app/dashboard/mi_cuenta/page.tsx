@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { X, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 export default function MiCuentaPage() {
   const router = useRouter()
@@ -37,34 +37,76 @@ export default function MiCuentaPage() {
   const [availability, setAvailability] = useState('')
 
   useEffect(() => {
-    try {
-      const token = localStorage.getItem('token')
-      const u = localStorage.getItem('usuario')
-      if (!token || !u) {
-        router.push('/login')
-        return
+    const cargarDatosUsuario = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const u = localStorage.getItem('usuario')
+        
+        if (!token || !u) {
+          router.push('/login')
+          return
+        }
+
+        const parsed = JSON.parse(u)
+        const userId = parsed.id
+
+        // Cargar datos completos desde el backend (combina users + freelancer_profiles)
+        const res = await fetch(`/api/usuario/${userId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (res.ok) {
+          const data = await res.json()
+          const userData = data.usuario || data
+          
+          setUsuario(userData)
+          
+          // Datos de la tabla users
+          setFirstName(userData.first_name || '')
+          setLastName(userData.last_name || '')
+          setEmail(userData.email || '')
+          setPhone(userData.phone || '')
+          setAvatarPreview(userData.avatar || null)
+          
+          // Datos de la tabla freelancer_profiles
+          setBio(userData.bio || '')
+          setHourlyRate(userData.hourly_rate ? String(userData.hourly_rate) : '')
+          setSkills(userData.skills || '')
+          setLanguages(userData.languages || '')
+          setExperienceLevel(userData.experience_level || '')
+          setPortfolioUrl(userData.portfolio_url || '')
+          setLinkedinProfile(userData.linkedin_profile || '')
+          setGithubProfile(userData.github_profile || '')
+          setAvailability(userData.availability || '')
+        } else {
+          // Si falla la carga desde API, usar localStorage como fallback
+          setUsuario(parsed)
+          setFirstName(parsed.first_name || '')
+          setLastName(parsed.last_name || '')
+          setEmail(parsed.email || '')
+          setPhone(parsed.phone || '')
+          setAvatarPreview(parsed.avatar || null)
+          setBio(parsed.bio || '')
+          setHourlyRate(parsed.hourly_rate ? String(parsed.hourly_rate) : '')
+          setSkills(parsed.skills || '')
+          setLanguages(parsed.languages || '')
+          setExperienceLevel(parsed.experience_level || '')
+          setPortfolioUrl(parsed.portfolio_url || '')
+          setLinkedinProfile(parsed.linkedin_profile || '')
+          setGithubProfile(parsed.github_profile || '')
+          setAvailability(parsed.availability || '')
+        }
+      } catch (err) {
+        console.error('Error al cargar datos:', err)
+        setError('Error al cargar los datos del usuario')
+      } finally {
+        setLoading(false)
       }
-      const parsed = JSON.parse(u)
-      setUsuario(parsed)
-      setFirstName(parsed.first_name || '')
-      setLastName(parsed.last_name || '')
-      setEmail(parsed.email || '')
-      setPhone(parsed.phone || '')
-      setAvatarPreview(parsed.avatar || null)
-  setBio(parsed.bio || '')
-  setHourlyRate(parsed.hourly_rate ? String(parsed.hourly_rate) : '')
-  setSkills(parsed.skills || '')
-  setLanguages(parsed.languages || '')
-  setExperienceLevel(parsed.experience_level || '')
-  setPortfolioUrl(parsed.portfolio_url || '')
-  setLinkedinProfile(parsed.linkedin_profile || '')
-  setGithubProfile(parsed.github_profile || '')
-  setAvailability(parsed.availability || '')
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
     }
+
+    cargarDatosUsuario()
   }, [router])
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,6 +121,7 @@ export default function MiCuentaPage() {
     setSaving(true)
     setError('')
     setSuccess('')
+    
     try {
       const token = localStorage.getItem('token')
       if (!token || !usuario) throw new Error('No autorizado')
@@ -95,15 +138,16 @@ export default function MiCuentaPage() {
       formData.append('last_name', lastName)
       formData.append('email', email)
       formData.append('phone', phone)
-        formData.append('bio', bio)
-        formData.append('hourly_rate', hourlyRate)
-        formData.append('skills', skills)
-        formData.append('languages', languages)
-        formData.append('experience_level', experienceLevel)
-        formData.append('portfolio_url', portfolioUrl)
-        formData.append('linkedin_profile', linkedinProfile)
-        formData.append('github_profile', githubProfile)
-        formData.append('availability', availability)
+      formData.append('bio', bio)
+      formData.append('hourly_rate', hourlyRate)
+      formData.append('skills', skills)
+      formData.append('languages', languages)
+      formData.append('experience_level', experienceLevel)
+      formData.append('portfolio_url', portfolioUrl)
+      formData.append('linkedin_profile', linkedinProfile)
+      formData.append('github_profile', githubProfile)
+      formData.append('availability', availability)
+      
       if (avatarFile) formData.append('avatar', avatarFile)
 
       const res = await fetch(`/api/usuario/${usuario.id}`, {
@@ -117,10 +161,12 @@ export default function MiCuentaPage() {
       if (res.ok) {
         const data = await res.json()
         const updated = data.usuario || {}
-        // actualizar localStorage
+        
+        // Actualizar localStorage
         localStorage.setItem('usuario', JSON.stringify(updated))
         setUsuario(updated)
-        setSuccess('Perfil actualizado')
+        
+  setSuccess('Perfil actualizado correctamente')
         setTimeout(() => setSuccess(''), 4000)
       } else {
         const err = await res.json()
@@ -136,7 +182,7 @@ export default function MiCuentaPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
+      <div className="min-h-screen flex items-center justify-center bg-neutral-900">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500"></div>
       </div>
     )
@@ -160,19 +206,26 @@ export default function MiCuentaPage() {
           </Card>
         )}
 
-        <Card className="p-6 bg-neutral-900 border-gray-800">
-          <div className="grid md:grid-cols-3 gap-6 items-center">
+        <Card className="p-6 bg-neutral-800 border-gray-700">
+          <div className="grid md:grid-cols-3 gap-6 items-start">
             <div className="flex flex-col items-center md:items-start md:col-span-1">
-              <Avatar>
+              <Avatar className="w-24 h-24">
                 {avatarPreview ? (
                   <AvatarImage src={avatarPreview} alt={`${firstName} ${lastName}`} />
                 ) : (
-                  <AvatarFallback>{(firstName || 'U').charAt(0)}</AvatarFallback>
+                  <AvatarFallback className="text-2xl">
+                    {(firstName || 'U').charAt(0)}
+                  </AvatarFallback>
                 )}
               </Avatar>
-              <label className="mt-3 flex flex-col items-center text-sm text-gray-300 cursor-pointer">
+              <label className="mt-3 flex flex-col items-center text-sm text-gray-300 cursor-pointer hover:text-teal-400 transition">
                 <span className="underline">Cambiar avatar</span>
-                <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleAvatarChange} 
+                  className="hidden" 
+                />
               </label>
             </div>
 
@@ -180,87 +233,175 @@ export default function MiCuentaPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-gray-200">Nombre</Label>
-                  <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} disabled={saving} className="bg-neutral-800 border-gray-700 text-white" />
+                  <Input 
+                    value={firstName} 
+                    onChange={(e) => setFirstName(e.target.value)} 
+                    disabled={saving} 
+                    className="bg-neutral-900 border-gray-600 text-white" 
+                  />
                 </div>
                 <div>
                   <Label className="text-gray-200">Apellido</Label>
-                  <Input value={lastName} onChange={(e) => setLastName(e.target.value)} disabled={saving} className="bg-neutral-800 border-gray-700 text-white" />
+                  <Input 
+                    value={lastName} 
+                    onChange={(e) => setLastName(e.target.value)} 
+                    disabled={saving} 
+                    className="bg-neutral-900 border-gray-600 text-white" 
+                  />
                 </div>
               </div>
 
               <div>
                 <Label className="text-gray-200">Email</Label>
-                <Input value={email} onChange={(e) => setEmail(e.target.value)} disabled={saving} className="bg-neutral-800 border-gray-700 text-white" />
+                <Input 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                  disabled={saving} 
+                  className="bg-neutral-900 border-gray-600 text-white" 
+                />
               </div>
 
               <div>
                 <Label className="text-gray-200">Teléfono</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={saving} className="bg-neutral-800 border-gray-700 text-white" />
+                <Input 
+                  value={phone} 
+                  onChange={(e) => setPhone(e.target.value)} 
+                  disabled={saving} 
+                  className="bg-neutral-900 border-gray-600 text-white"
+                  placeholder="Ej: +52 812 345 6789"
+                />
               </div>
 
               <div>
                 <Label className="text-gray-200">Biografía</Label>
-                <Textarea value={bio} onChange={(e) => setBio(e.target.value)} disabled={saving} className="bg-neutral-800 border-gray-700 text-white" rows={4} />
+                <Textarea 
+                  value={bio} 
+                  onChange={(e) => setBio(e.target.value)} 
+                  disabled={saving} 
+                  className="bg-neutral-900 border-gray-600 text-white" 
+                  rows={4}
+                  placeholder="Cuéntanos sobre ti, tu experiencia y especialidades..."
+                />
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-gray-200">Tarifa por hora (USD)</Label>
-                  <Input type="number" min="0" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} disabled={saving} className="bg-neutral-800 border-gray-700 text-white" />
+                  <Input 
+                    type="number" 
+                    min="0" 
+                    step="0.01"
+                    value={hourlyRate} 
+                    onChange={(e) => setHourlyRate(e.target.value)} 
+                    disabled={saving} 
+                    className="bg-neutral-900 border-gray-600 text-white"
+                    placeholder="25.00"
+                  />
                 </div>
                 <div>
                   <Label className="text-gray-200">Nivel de experiencia</Label>
-                  <select value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value)} disabled={saving} className="w-full bg-neutral-800 border border-gray-700 text-white rounded-lg px-3 py-2">
+                  <select 
+                    value={experienceLevel} 
+                    onChange={(e) => setExperienceLevel(e.target.value)} 
+                    disabled={saving} 
+                    className="w-full bg-neutral-900 border border-gray-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  >
                     <option value="">Selecciona</option>
-                    <option value="junior">Junior</option>
-                    <option value="mid">Mid</option>
-                    <option value="senior">Senior</option>
+                    <option value="entry">Entry</option>
+                    <option value="intermediate">Intermedio</option>
+                    <option value="expert">Experto</option>
                   </select>
                 </div>
               </div>
 
               <div>
                 <Label className="text-gray-200">Habilidades (separadas por comas)</Label>
-                <Input value={skills} onChange={(e) => setSkills(e.target.value)} disabled={saving} className="bg-neutral-800 border-gray-700 text-white" />
+                <Input 
+                  value={skills} 
+                  onChange={(e) => setSkills(e.target.value)} 
+                  disabled={saving} 
+                  className="bg-neutral-900 border-gray-600 text-white"
+                  placeholder="React, Node.js, Python, Diseño UX"
+                />
               </div>
 
               <div>
                 <Label className="text-gray-200">Idiomas (separados por comas)</Label>
-                <Input value={languages} onChange={(e) => setLanguages(e.target.value)} disabled={saving} className="bg-neutral-800 border-gray-700 text-white" />
+                <Input 
+                  value={languages} 
+                  onChange={(e) => setLanguages(e.target.value)} 
+                  disabled={saving} 
+                  className="bg-neutral-900 border-gray-600 text-white"
+                  placeholder="Español, Inglés, Francés"
+                />
               </div>
 
               <div>
                 <Label className="text-gray-200">Portafolio (URL)</Label>
-                <Input value={portfolioUrl} onChange={(e) => setPortfolioUrl(e.target.value)} disabled={saving} className="bg-neutral-800 border-gray-700 text-white" />
+                <Input 
+                  value={portfolioUrl} 
+                  onChange={(e) => setPortfolioUrl(e.target.value)} 
+                  disabled={saving} 
+                  className="bg-neutral-900 border-gray-600 text-white"
+                  placeholder="https://miportfolio.com"
+                />
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-gray-200">LinkedIn (URL)</Label>
-                  <Input value={linkedinProfile} onChange={(e) => setLinkedinProfile(e.target.value)} disabled={saving} className="bg-neutral-800 border-gray-700 text-white" />
+                  <Input 
+                    value={linkedinProfile} 
+                    onChange={(e) => setLinkedinProfile(e.target.value)} 
+                    disabled={saving} 
+                    className="bg-neutral-900 border-gray-600 text-white"
+                    placeholder="https://linkedin.com/in/tu-perfil"
+                  />
                 </div>
                 <div>
                   <Label className="text-gray-200">GitHub (URL)</Label>
-                  <Input value={githubProfile} onChange={(e) => setGithubProfile(e.target.value)} disabled={saving} className="bg-neutral-800 border-gray-700 text-white" />
+                  <Input 
+                    value={githubProfile} 
+                    onChange={(e) => setGithubProfile(e.target.value)} 
+                    disabled={saving} 
+                    className="bg-neutral-900 border-gray-600 text-white"
+                    placeholder="https://github.com/tu-usuario"
+                  />
                 </div>
               </div>
 
               <div>
                 <Label className="text-gray-200">Disponibilidad</Label>
-                <select value={availability} onChange={(e) => setAvailability(e.target.value)} disabled={saving} className="w-full bg-neutral-800 border border-gray-700 text-white rounded-lg px-3 py-2">
+                <select 
+                  value={availability} 
+                  onChange={(e) => setAvailability(e.target.value)} 
+                  disabled={saving} 
+                  className="w-full bg-neutral-900 border border-gray-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
                   <option value="">Selecciona</option>
                   <option value="available">Disponible</option>
-                  <option value="part_time">Medio tiempo</option>
+                  <option value="busy">Ocupado</option>
                   <option value="not_available">No disponible</option>
                 </select>
               </div>
 
               <div className="flex gap-3 pt-3">
-                <Button onClick={() => router.push('/dashboard')} variant="outline" className="border-gray-700 text-gray-200">Volver</Button>
-                <Button onClick={handleSave} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
+                <Button 
+                  onClick={() => router.push('/dashboard')} 
+                  variant="outline" 
+                  className="border-gray-600 text-gray-200 hover:bg-neutral-800"
+                >
+                  Volver
+                </Button>
+                <Button 
+                  onClick={handleSave} 
+                  disabled={saving} 
+                  className="bg-teal-600 hover:bg-teal-700"
+                >
                   {saving ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" /> Guardando...
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" /> 
+                      Guardando...
                     </>
                   ) : (
                     'Guardar cambios'

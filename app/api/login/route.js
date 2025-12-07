@@ -18,7 +18,7 @@ export async function POST(request) {
     
     if (usuarios.length === 0) {
       return Response.json({ 
-        error: 'Credenciales inválidas' 
+        error: 'El correo electrónico no está registrado' 
       }, { status: 401 });
     }
     
@@ -28,7 +28,7 @@ export async function POST(request) {
     
     if (!passwordValido) {
       return Response.json({ 
-        error: 'Credenciales inválidas' 
+        error: 'La contraseña es incorrecta' 
       }, { status: 401 });
     }
     

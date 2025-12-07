@@ -51,7 +51,7 @@ export async function POST(request) {
       );
     }
 
-    console.log('✓ Verificación de freelancer exitosa');
+  console.log('Verificación de freelancer exitosa');
 
     // 5. Obtener datos del formulario
     const formData = await request.formData();
@@ -94,14 +94,14 @@ export async function POST(request) {
       );
     }
 
-    console.log('✓ Validaciones pasadas');
+  console.log('Validaciones pasadas');
 
     // 8. Procesar imágenes
     const uploadsDir = join(process.cwd(), 'public', 'uploads', 'services');
     
     try {
-      await mkdir(uploadsDir, { recursive: true });
-      console.log('✓ Directorio de uploads creado/verificado');
+  await mkdir(uploadsDir, { recursive: true });
+  console.log('Directorio de uploads creado/verificado');
     } catch (mkdirError) {
       console.error('Error creando directorio:', mkdirError);
       // Continuar de todos modos
@@ -137,7 +137,7 @@ export async function POST(request) {
           await writeFile(path, buffer);
           imageUrls.push(`/uploads/services/${filename}`);
           
-          console.log(`✓ Imagen ${i + 1} guardada: ${filename}`);
+          console.log(`Imagen ${i + 1} guardada: ${filename}`);
         } catch (imgError) {
           console.error(`Error al guardar imagen ${i + 1}:`, imgError.message);
           // Continuar con las demás imágenes
@@ -145,7 +145,7 @@ export async function POST(request) {
       }
     }
 
-    console.log(`✓ Total de imágenes procesadas: ${imageUrls.length}`);
+  console.log(`Total de imágenes procesadas: ${imageUrls.length}`);
 
     // 9. Insertar en base de datos
     console.log('Insertando servicio en base de datos...');
@@ -172,7 +172,7 @@ export async function POST(request) {
         ]
       );
 
-      console.log('✓ Servicio insertado exitosamente con ID:', resultado.insertId);
+  console.log('Servicio insertado exitosamente con ID:', resultado.insertId);
 
       // 10. Respuesta exitosa
       return NextResponse.json({

@@ -66,7 +66,7 @@ export function Navigation() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard/mi_cuenta">Mi cuenta</Link>
+                  <Link href="/dashboard/configuracion">Configuracion</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/">Cerrar sesión</Link>

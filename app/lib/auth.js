@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { consulta } from './db'; 
 
-const SECRET_KEY = 'tu_clave_secreta_super_segura_12345';
+const SECRET_KEY = process.env.JWT_SECRET || 'tu_clave_secreta_super_segura_12345';
 
 export function generarToken(usuario) {
   const payload = {
@@ -16,20 +16,16 @@ export function generarToken(usuario) {
   return token;
 }
 
-
 export async function verificarToken(token) {
   try {
-    
     const decoded = jwt.verify(token, SECRET_KEY);
-    
     
     const usuarios = await consulta(
       `SELECT id, email, first_name, last_name, user_type, avatar, phone 
        FROM users 
        WHERE id = ?`,
-      [decoded.userId || decoded.id]  
+      [decoded.userId || decoded.id]
     );
-    
     
     if (!usuarios || usuarios.length === 0) {
       console.error('Usuario no encontrado en la base de datos para ID:', decoded.userId || decoded.id);
@@ -37,7 +33,6 @@ export async function verificarToken(token) {
     }
     
     const usuario = usuarios[0];
-    
     
     return {
       id: usuario.id,
@@ -55,14 +50,13 @@ export async function verificarToken(token) {
   }
 }
 
-
 export async function encriptarPassword(password) {
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
   return hashedPassword;
 }
 
-
 export async function compararPassword(password, hashedPassword) {
   return await bcrypt.compare(password, hashedPassword);
 }
+export const verificarPassword = compararPassword;

@@ -15,7 +15,7 @@ export function Navigation() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-3 group">
+            <Link href="/dashboard_cliente" className="flex items-center gap-3 group">
               {/* Logo UTSC - Solo el escudo */}
               <div className="relative h-12 w-12">
                 <Image
@@ -43,7 +43,7 @@ export function Navigation() {
                 Inicio
               </Link>
               <Link
-                href="/dashboard_cliente/contratar/3"
+                href="/dashboard_cliente/contratar"
                 className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 Servicios
@@ -61,10 +61,7 @@ export function Navigation() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                  <Link href="/mi-cuenta">Mi cuenta</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/configuracion">Configuración</Link>
+                  <Link href="/dashboard_cliente/configuracion">Configuración</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/">Cerrar sesión</Link>

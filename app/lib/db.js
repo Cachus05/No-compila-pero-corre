@@ -25,3 +25,6 @@ export async function consulta(sql, parametros = []) {
     await conexion.end();
   }
 }
+
+// Alias para compatibilidad con otros archivos
+export const query = consulta;

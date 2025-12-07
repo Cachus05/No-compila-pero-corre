@@ -1,5 +1,6 @@
 import { consulta } from '../../lib/db';
 import { generarToken, encriptarPassword } from '../../lib/auth';
+import { enviarEmail, emailBienvenida } from '../../../lib/email';
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 
@@ -88,6 +89,26 @@ export async function POST(request) {
     // Generar token
     const token = generarToken(nuevoUsuario);
     
+  // ENVIAR EMAIL DE BIENVENIDA
+    try {
+      const mailOptions = emailBienvenida(
+        `${first_name} ${last_name}`,
+        email,
+        user_type
+      );
+      
+      const resultadoEmail = await enviarEmail(mailOptions);
+      
+      if (resultadoEmail.success) {
+        console.log('Email de bienvenida enviado correctamente');
+      } else {
+        console.warn('No se pudo enviar el email de bienvenida, pero el registro fue exitoso');
+      }
+    } catch (emailError) {
+      // No bloqueamos el registro si falla el email
+  console.error('Error al enviar email de bienvenida:', emailError);
+    }
+    
     return Response.json({
       mensaje: 'Usuario registrado exitosamente',
       usuario: {
@@ -110,11 +131,3 @@ export async function POST(request) {
     }, { status: 500 });
   }
 }
-
-
-
-
-
-
-
-
